@@ -1,0 +1,1344 @@
+---
+title: "Final Project - DATA 607"
+author: "Brian Liles"
+date: "May 8, 2018"
+output:
+  html_document: default
+  word_document: default
+---
+
+#Introduction
+As one of the most profitable sports, basketball has created superstars who has taken the game to unimaginable heights. Created in 1892 by Dr. James Naismith, the game of basketball is played all over the world from inner city playgrounds, billion dollar arenas and the Olympics. In 1946 the NBA (National Basketball Association) broke ground and 21 years later the defunct ABA (American Basketball Association) was established. In addition to the male dominated sport, the WNBA began in 1996. From these leagues hundreds of players became household names who have endorsed athletic wear, cars, soft drinks and even started music and acting careers.
+
+In this two-part project I will look at data from all NBA/ABA players as well as my beloved New York Knicks. Firstly, I will look at which colleges have produced the most talent, conduct descriptive statistics on height and weight, identify which position is played most, and then run similar tests on players who've reached hall of fame status.
+
+Secondly, I will look at my hometown New York Knicks. In what's considered the mecca of basketball, the Knicks have only won 2 championships in their 72 seasons. Criticized as a chaotic organization, I will establish who were the franchises best players based a myriad of categories.
+
+Data for this project was extracted and researched from  www.basketball-reference.com and www.wikipedia.com
+
+##Load packages
+The first step is to load the **tidyverse** and **knitr** packages into R.
+```{r}
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(rvest)
+```
+##Import NBA/ABA Player Data
+Next, the players csv data will be uploaded into R via **GitHub** into a data set entitled **nba**, once uploaded we will run the **glimpse** function to look at the structure of the data.
+
+```{r}
+#import data using read_csv from the readr package
+nba <- read_csv("https://raw.githubusercontent.com/LilesB/DATA-607---Final-Project-/master/nba.csv")
+
+#glimpse
+glimpse(nba)
+```
+We have a data set that has 4,580 observations and 9 variables that are broken down as follows:
+* + **Player**  - Name of the NBA/ABA player
+  + **From** - First year in the league
+  + **To** - Last year in the league
+  + **Pos** - Position played
+  + **HtFeet** - Player's Height (Feet)
+  + **HtInches** - Player's Height (Inches)
+  + **Wt** - Player's weight
+  + **Birth_Date** - Player's date of birth
+  + **Colleges** - College attended
+
+#Data Wrangling
+First we will create a new field entitled **YrsActive** using the **mutate** function which will calculate how many years each player remained active in the league. Secondly, we will create an all encompassing variable named **Height** which will multiply  **HtFeet**  by 12 and then add the **HtInches** data. Lastly, we will separate the **Birth_Date** column by month, day, and year using the **separate** function.
+
+```{r}
+#use mutate from the dplyr package to create new calculated fields 
+#adding a day to the calculation includes all years active
+
+#use separate from the tidyr package to create month, day, and year variales
+
+#use select from the dplyr package to rearrange and drop columns
+
+nba <- nba %>%
+    mutate(YrsActive = To - From + 1) %>%
+    mutate(Height = (HtFeet * 12) + (HtInches)) %>%
+    separate(Birth_Date, c("Birth_Month","Birth_Day","Birth_Year")) %>%
+    select(Player,From,To,YrsActive,Pos,Height,Wt,
+           Birth_Month,Birth_Day,Birth_Year,Colleges)
+```
+View the contents of the **nba** data set using the **head** function
+```{r}
+head(nba)
+```
+
+Before we begin wrangling the data, the next step is to run a summary on all of the variables; running a summary provides programmers with a snap shot the data.
+
+```{r}
+summary(nba)
+```
+Based on the summary findings we see which variables are numeric or character plus those have been assigned NAs; this information is pertinent when running certain code.
+
+#All Encompassing Descriptives
+
+##Yrs Active
+With it being difficult to etch out a spot in professional sports as well as have a fruitful career, we will look at the **YrsActive** variable to identify the **IRON MEN** of the league.
+```{r}
+nba %>% 
+    filter(!is.na(YrsActive)) %>% #does not factor data with NA
+    summarise(mean = mean(YrsActive),
+              median = median(YrsActive),
+              max = max(YrsActive),
+              sd = sd(YrsActive)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+
+Based on the data we see that the career of a basketball player is fairly short with an average of 5.2 and a median of 4. In addition there is an outlier of 23 years. Next we will look at the Yrs Active in the league closer by utlizing the **count** & **arrange** features.
+
+Next we will create a lists similar to sports networks like **ESPN** to identify the players with careers that spanned 20 years or more.
+
+```{r}
+nba %>% filter(YrsActive >= 20) %>%
+  arrange(desc(YrsActive)) %>%
+  select(Player,From,To,YrsActive,Pos) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+Based on the data we find that only 9 players had a career that spanned 20 years or more. Journeyman **Kevin Willis**, who played 23 years, is dubbed the NBA/ABA "Iron Man".
+
+With majority of these players "big men" let's see if being a big man in the league constitutes a longer career.
+
+```{r}
+ggplot(data = nba) +
+    geom_point(mapping = aes(x = Height, y = YrsActive), color = "blue")
+```
+
+Based on the scatterplot we see that being the tallest in the league constitute a fruitful career; the same can be said for players less than 70 inches (6 feet tall).  
+
+##Positions
+In the 1970s and 80s the NBA was considered a big man league. Currently analysts and pundits say it is now the era of the guard. Next we will view the makeup of the league based on position.
+
+```{r}
+nba %>% 
+    filter(!is.na(Pos)) %>%
+    group_by(Pos) %>%
+    summarise(n = n()) %>%
+    mutate(Freq = n/sum(n)) %>%
+    arrange(desc(Freq)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+Based on the analysis we see that over 1,500 players (34.93%) play the guard position followed by 1,271 at forward (28.28%) and then 490 at center (10.90%); the remaining were considered combo players.
+
+##Height
+When the Atlanta Hawks **Spud Webb** won the slam dunk contest in 1986, many weren't thrilled the dunk itself...it was because Spud stood at only 5-foot-7. Next we will take a look at the height of NBA players.
+```{r}
+nba %>% 
+    filter(!is.na(Height)) %>% 
+    summarise(mean = mean(Height),
+              median = median(Height),
+              min = min(Height),
+              max = max(Height),
+              sd = sd(Height)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+The average and median height of an NBA player is 78 inches (6ft 5in), while the shortest player in the history of the game is 63 inches and the tallest player being 91 inches. Next we will target these heights to identify these "Freaks of the League". 
+```{r}
+#create a vector named target that will host the values
+target <- c(63,91)
+nba %>% filter(Height %in% target) %>%
+    arrange(desc(YrsActive)) %>%
+    select(Player,YrsActive,Pos,Height) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+**Muggsy Bogues** and **Penny Early** deviated from the norm as being the shortest players of all time standing at 63 inches, in addition, Bogues played for a remarkable 14 years. **Manute Bol** and **Gheorghe Muresan** were the tallest ever standing at 91 inches; both had careers than spanned longer than the average, 10 and 7 years respectively.
+
+##Weight
+With the average height of an NBA/ABA athelete being 6ft 5in it would be interesting to view the average weight. Accoring to www.disabled-world.com the proper weight-to-height ratio would be between 187-229lbs for someone at that height.
+```{r}
+nba %>% 
+    filter(!is.na(Wt)) %>% 
+    summarise(mean = mean(Wt),
+              median = median(Wt),
+              min = min(Wt),
+              max = max(Wt),
+              sd = sd(Wt)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+Again the mean and median are nearly identical while the minimum and maximum weights are considered outliers. The next step will be to create a scatterplot with the height and weight variables.
+
+```{r}
+ggplot(data = nba) +
+    geom_point(mapping = aes(x = Wt, y = Height), color = "blue")
+```
+
+For the most part, the make up of the league follows the average height and weight. In addition, we see that the outliers follow the common knowledge; shorter players weigh less while the tallest players weigh more.
+
+Next, let's identify the extreme outliers in the weight class of the NBA/ABA.
+
+```{r}
+target <- c(114,360)
+nba %>% filter(Wt %in% target) %>%
+    arrange(desc(YrsActive)) %>%
+    select(Player,YrsActive,Pos,Wt) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+Falling in line with how most outliers are viewed, each player only spent 1 year in the profession. What we also see is the name **Penny Early** who was also one of the shortest players, Early stood a little over 5 feet and weighed a paltry 114 pounds. **Sim Bhullar** was the heaviest athlete, weighing in at 360 pounds.
+
+##Month
+For kicks it would be interesting to see which month on the calendar produced the most basketball talent...hoping for my birth month of July!
+
+```{r}
+nba %>% 
+    filter(!is.na(Birth_Month)) %>%
+    group_by(Birth_Month) %>%
+    summarise(n = n()) %>%
+    mutate(Freq = n/sum(n)) %>%
+    arrange(desc(Freq)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+
+Sharing my birth month as I hoped, the month of July has produced the most NBA/ABA players followed closely by March, September, and October.
+
+##Colleges
+During the month of March, former students and fans of college basketball create brackets surrounding the annual tournament. 64 teams play opponents across the country in order to snip the net at the national champtionship. Our next analysis will look at which college/university has produced the most NBA/ABA talent.
+
+```{r}
+nba %>% 
+    filter(!is.na(Colleges)) %>%
+    count(Colleges, sort = TRUE) %>%
+    filter(n >=40) %>%
+    mutate(Colleges = reorder(Colleges,n)) %>%
+    ggplot(aes(Colleges,n)) +
+    geom_col(fill = "blue") +
+    geom_text(aes(label = n), hjust=1.6,color="white", size=3.5)+
+    xlab(NULL) +
+    coord_flip()
+```
+
+As we can see the **University of Kentucky** has produced 95 players to the NBA/ABA based on the data set leading the pack with **Duke** following with 86.
+
+#Hall of Famers
+Located in Springfield, Massachusetts, the NBA Hall of Fame is where all aspiring basketball players hope to be enshrined. We will now extract the hall of fame athletes using the **subset** ,**grepl**, and **dim** functions from the base package into the hof data set.
+
+```{r}
+hof <- subset(nba, grepl("\\*",nba$Player))
+dim(hof)
+```
+The hall of fame data set has 129 observations compared to the original NBA/ABA players data set which has 4,580 observations. Based on research, the amount of players is only a third of the entries. Others are coaches, referees and other affiliates.
+Let's take a quick look to see the percentage of players inducted in the hall of fame.
+
+```{r}
+(129/4580) *100
+```
+Astonishgly only 2.8% of the players population has been inducted in the hall of fame.
+
+As in the previous analysis, let's take an in-depth look at the players inducted into the hall of fame.
+
+##Hall of Famers - Yrs Active
+Earlier we saw that 4 out of the 9 players (44%) that had 20 years or more were hall of famers. Let's take a look at the rest of the players in this elite class and this time we will include the minimum statistic.
+
+```{r}
+hof %>% 
+    filter(!is.na(YrsActive)) %>% 
+    summarise(mean = mean(YrsActive),
+              median = median(YrsActive),
+              min = min(YrsActive),
+              max = max(YrsActive),
+              sd = sd(YrsActive)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+The average career of a hall of famer is 12 years while the minimum years active is 2 years while the maximum is 21 years. First, let's identify the outliers.
+
+```{r}
+target <- c(2,21)
+hof %>% filter(YrsActive %in% target) %>%
+    arrange(desc(YrsActive)) %>%
+    select(-Birth_Month,-Birth_Day,-Birth_Year) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+For what may seem strange initially, **John Thompson** was inducted in the hall of fame mostly because of his stint as the coach of the Georgetown Hoyas for 27 years. Thompson's also had a career in the league as a player was with the Boston Celtics, where he actually won 2 championships in 1965 and 1966.
+
+Next, we will conduct a count on hall of famers to identify those who gave 12+ years to the game; equal to and above the mean.
+
+```{r}
+hof %>% 
+    filter (YrsActive >= 12) %>%
+    arrange(desc(YrsActive)) %>%
+    select(-Birth_Day,-Birth_Month,-Birth_Year) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+
+##Hall of Famers - Position
+Next, we will take a look at what position on the court has generated the most hall of famers.
+```{r}
+hof %>% 
+    filter(!is.na(Pos)) %>%
+    group_by(Pos) %>%
+    summarise(n = n()) %>%
+    mutate(Freq = n/sum(n)) %>%
+    arrange(desc(Freq)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+Based on the data, we find that there is a difference between the players enshrined into the hall of fame based on their position. Guards remain in the same spot, while the combo F-C positon comes in second; only 13 forwards entered the hall of fame while they were second overall.
+
+##Hall of Famers - Height/Weight
+Since we found a shift in the makeup for the position variable, let's see if the physical makeup of 6ft 5 and 208 pounds changes for hall of fame players.
+```{r}
+hof %>% 
+    filter(!is.na(Height)) %>% 
+    summarise(mean = mean(Height),
+              median = median(Height),
+              min = min(Height),
+              max = max(Height),
+              sd = sd(Height)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+```{r}
+hof %>% 
+    filter(!is.na(Wt)) %>% 
+    summarise(mean = mean(Wt),
+              median = median(Wt),
+              min = min(Wt),
+              max = max(Wt),
+              sd = sd(Wt)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+For the most part the physical makeup of hall of famers are consistent with the rest of the league.
+
+##Hall of Famers - Birth Month
+After receiving validation for my birth month of July, let's see if the month of the ruby has the same luck in the hall of fame.
+```{r}
+hof %>% 
+    filter(!is.na(Birth_Month)) %>%
+    group_by(Birth_Month) %>%
+    summarise(n = n()) %>%
+    mutate(Freq = n/sum(n)) %>%
+    arrange(desc(Freq)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+It seems the month of September gave birth to the most hall of famer with 19, followed by March, May, and Jult with 13.
+
+##Hall of Famers - Colleges
+Lastly, we will see which college produced the most hall of fame talent.
+```{r}
+hof %>% 
+    filter(!is.na(Colleges)) %>%
+    count(Colleges, sort = TRUE) %>%
+    filter(n >=2) %>%
+    mutate(Colleges = reorder(Colleges,n)) %>%
+    ggplot(aes(Colleges,n)) +
+    geom_col(fill = "blue") +
+    geom_text(aes(label = n), hjust=1.6,color="white", size=3.5)+
+    xlab(NULL) +
+    coord_flip()
+```
+
+**UCLA** produced 6 NBA/ABA hall of famers based on our data, let's identify the talented 6.
+```{r}
+hof %>%
+    filter(Colleges =="University of California, Los Angeles") %>%
+    select(-Birth_Month, -Birth_Day,-Birth_Year,-Colleges) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+    
+```
+#Conclusion
+After careful inspection I noticed that the database from www.basket-reference.com was not up to date for all hall of famers. However, it seems 90% accurate and up to date. It was interesting to see the average height and weight of each player as well as the college information. 
+
+Based on the data, it's clear that the average basketball player stands at 6ft 5inches and weighs 208 pounds. In addition, the guard position is the most sought after position in the sport. The big name universities are at the top of their class for recruitment and the average span in this sport is 5 years.
+
+Next we will explore the New York Knicks.
+
+#New York Knicks
+The New York Knicks have become one of the biggest disappointments in the NBA. In 72 seasons the team has 42 playoff appearances (58.3%) but only mustered 2 championships (2.7%); with the last title occurring 45 years ago. Located in basketball's mecca, the Knicks are the most profitable team in sports with the worst track record. My goal is to analyze the 480 players who have belonged to this organization and see who were the top Knicks and see which decade had the best talent. 
+
+#Scrape the Knicks Data
+Next we will utilize the **read_html** function to read the web page that stores the data.
+```{r}
+#name the file to store the data knicks_url
+knicks_url <- 'https://www.basketball-reference.com/teams/NYK/players.html'
+
+webpage <- read_html(knicks_url)
+```
+The data was successfully scraped, we will now convert the data into a dataframe using **html_nodes** and **html_table**
+```{r}
+knicks_table <- html_nodes(webpage, 'table')
+knicks <- html_table(knicks_table)[[1]]
+```
+In order to make sure the data is up to standard we will look at the data using the **View** feature
+```{r}
+View(knicks)
+```
+##Clean Up
+For the most part the data looks presentable, but there are a few things that can be removed.
+
+First we see the column names are in the second row of data and we can verify this by using the **colnames** feature.
+```{r}
+colnames(knicks)
+```
+We will fix this issue by renaming the columns of the knicks data set using the **names** function
+
+```{r}
+names(knicks) <- c("Rk","Player","From","To","Yrs","G","MP",
+             "FG","FGA","THREE_P","THREE_PA","FT","FTA",
+             "ORB","TRB","AST","STL","BLK","TOV","PF","PTS",
+             "FG_PER","THREE_PER","FT_PER","MPPG","PPG","TRPG",
+             "APG")
+```
+In addition to renaming the columns there were breaks in the data that kept the previous column headers, the following code omits all data in column G that has **Totals** and **G** to be removed from the data set.
+```{r}
+knicks <- knicks[!(knicks$G=="Totals" | knicks$G=="G"), ]
+```
+Next, using the **glimpse** function we will see how our data set is looking
+```{r}
+glimpse(knicks)
+```
+Our data matches the number of players with 480 observations and 28 variables, but the majority of the fields are character. In our next step we utilize the **sapply** function to convert columns 3 through 28 to numeric and then re-run the **glimpse** function
+```{r}
+knicks[, c(3:28)] <- sapply(knicks[, c(3:28)], as.numeric)
+glimpse(knicks)
+```
+Finally, we will remove the **Rk** column from the data set since it doesn't have any significance.
+```{r}
+knicks$Rk <- NULL
+head(knicks)
+```
+#Explanation of Variables
+For those who are new to the sport of basketball we will take an in-depth look at what each variable is:
+
+* 
+  + **Player** name of the Knicks basketball player
+  + **From** first year played with the organization
+  + **To** last year played with the organization
+  + **Yrs** number of years played with the organization
+  + **G** number of games played with the organization
+  + **MP** minutes played with the organization
+  + **FG** number of field goals made
+  + **FGA** number of field goals attempted
+  + **THREE_P** number of 3-point field goals made
+  + **THREE_PA** number of 3-point field goals attempted
+  + **FT** number of free throws made
+  + **FTA** number of free throws attempted
+  + **ORB** number of offensive rebounds
+  + **TRB** number of total rebounds
+  + **AST** number of assists
+  + **STL** number of steals
+  + **BLK** number of blocked shots
+  + **TOV** number of turnovers
+  + **PF** number of personal fouls
+  + **PTS** number of points scored
+  + **FG_PER** field goal percentage
+  + **THREE_PER** three-point field goal percentage
+  + **FT_PER** free throw percentage
+  + **MPPG** minutes played per game
+  + **PPG** points per game
+  + **TRPG** total rebounds per game
+  + **APG** assists per game
+
+#Analysis
+##Overall Stats
+In this analysis we will look at who is considered the best and worst Knick in all fields. We will keep track of who is the top Knicks by creating a data frame where we will give each player a score similar to those in the Olympics (i.e. Gold = 5, Silver = 3, and Bronze = 1)
+
+##Years with the Organization
+Based on player research **Dirk Nowitzki** has remained with one franchise the longest. His tenure with the **Dallas Mavericks** is 21 years and counting. Next, we will see which player remained with the Knicks the longest; this data will not be tracked but it's good to know who is the Knicks "Iron Man".
+```{r}
+knicks %>% 
+    filter(!is.na(Yrs)) %>% 
+    summarise(mean = mean(Yrs),
+              median = median(Yrs),
+              max = max(Yrs),
+              sd = sd(Yrs)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+The average length a player remained with the Knicks is 2 years with median of 1. The longest a player has remained with the New York Knicks is 15 years which is 6 years shy of the record held by Nowitzki. Next, we will identify that player as well as highlight which players have remained with the organization at least a decade.
+```{r}
+knicks %>% filter(Yrs >= 10) %>%
+  arrange(desc(Yrs)) %>%
+  select(Player,From,To,Yrs) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+Based on the data, we surprinsingly found that only 8 Knicks have remained with the team for 10 years or more, while the Knicks ironman is none other than their 1985 first round draft pick  **Patrick Ewing**
+
+##Games Played
+For what may seem obvious, we will quickly look at how many games were played on average as well as identify which players played the most games for the organization.
+```{r}
+knicks %>% 
+    filter(!is.na(G)) %>% 
+    summarise(mean = mean(G),
+              median = median(G),
+              max = max(G),
+              sd = sd(G)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+```{r}
+knicks %>% filter(G >= 600) %>%
+  arrange(desc(G)) %>%
+  select(Player,From,To,G,Yrs) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+There were 12 players who played 600 or more games for the Knicks. Without surprise **Patrick Ewing** has played the most games with 1,039 while **Walt Frazier** follows behind with 759, and **Bill Bradley** with 742.
+
+##Minutes Played (Most Durable Knick)
+Hall of fame center **Kareem Abdul-Jabbar** played the most minutes by racking in 57,446, let's see which Knick played the most minutes.
+```{r}
+knicks %>% 
+    filter(!is.na(MP)) %>% 
+    summarise(mean = mean(MP),
+              median = median(MP),
+              max = max(MP),
+              sd = sd(MP)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+###All-Star Difference - Minutes Played
+```{r}
+#Knicks max minutes played subtracted from Kareems minutes played 
+57446 - 37586
+```
+With 19,860 minutes less, the Knick with the most minutes played had 37,586 with the average being 2,905 with a median of 1,015. Let's identify which players had the most minutes played, and see how many minutes they averaged each year.
+
+Data from this statistic will start the **Knicks Olympics**
+
+```{r}
+knicks %>% filter(MP >= 17000) %>% 
+  mutate(MP_AVG = round(MP/Yrs)) %>%
+  arrange(desc(MP_AVG)) %>%
+  select(Player,From,To,Yrs,MP, MP_AVG) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+Based on the data, we see that point-guard **Walt Frazier** was the most durable by averaging 2,900 minutes a season, coming in second is **Patrick Ewing** with 2,506, with third place being **Gerald Wilkins** with 2,431.
+
+###Knicks Olympics - Minutes Played
+```{r}
+greatest <- tibble(Player = c("Walt Frazier",
+                              "Patrick Ewing",
+                              "Gerald Wilkins"),
+                          Yrs = c(5,3,1))
+greatest %>% kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+##Field Goals
+**Kareem Abdul-Jabbar** tops the all-time list again with 15,837 field goals...does any Knick match up to the hall of famer from UCLA?
+```{r}
+knicks %>% 
+    filter(!is.na(FG)) %>% 
+    summarise(mean = mean(FG),
+              median = median(FG),
+              max = max(FG),
+              sd = sd(FG)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+###All-Star Difference - Field Goals
+```{r}
+15837 - 9260
+```
+The average field goals by a Knick was 458 while the median is 121 making the data skewed to the left. The Knick with the most fields goals registered in at 9,260. Next, let's see which Knicks had the knack.
+```{r}
+knicks %>% filter(FG >= 3500) %>% 
+  mutate(FG_AVG = round(FG/Yrs)) %>%
+  arrange(desc(FG_AVG)) %>%
+  select(Player,From,To,Yrs,FG, FG_AVG) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+**Patrick Ewing** took the title by averging 617 field goals per year followed by **Walt Frazier** with 574 and **Carmelo Anthony** bringing in third with 518.
+
+###Knicks Olympics - Field Goals
+```{r}
+fg <- tibble(Player = c("Patrick Ewing",
+                        "Walt Frazier",
+                        "Carmelo Anthony"),
+                          FG = c(5,3,1))
+
+greatest <- greatest %>% full_join(fg)
+greatest %>% kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+##3-Point Field Goals 
+In Spike Lee's film, **He Got Game** a basketball all star named Jesus Shuttlesworth fought with making a decision about which college to attend while his convict father made attempts to guide his choice under the control of a prison warden. The baseketball based film starred Oscar award winner **Denzel Washington** and **Ray Allen**, who holds the title of the most 3-point field goals made with 2,973.
+```{r}
+knicks %>% 
+    filter(!is.na(THREE_P)) %>% 
+    summarise(mean = mean(THREE_P),
+              median = median(THREE_P),
+              max = max(THREE_P),
+              sd = sd(THREE_P)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+###All-Star Difference - 3-Point Field Goals
+```{r}
+2973 - 982
+```
+The average 3-Point field goals were 52 with a median of 3; data is skewed to the left. Based on this data it looks like the Knicks are far from a 3-Point shooting team, but let's identify who are the top marksman.
+```{r}
+knicks %>% filter(THREE_P >= 375) %>% 
+  mutate(THREE_P_AVG = round(THREE_P/Yrs)) %>%
+  arrange(desc(THREE_P_AVG)) %>%
+  select(Player,From,To,THREE_P,THREE_P_AVG) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+To top the list we have **Tim Hardaway** with an average of 127 from beyond the arc, next there is 90's fan favorite **John Starks** followed by **Jamal Crawford** with 120.
+```{r}
+three_p <- tibble(Player = c("Tim Hardaway",
+                             "John Starks",
+                             "Jamal Crawford"),
+                          THREE_P = c(5,3,1))
+
+greatest <- greatest %>% full_join(three_p)
+
+greatest %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+##Free Throws
+Known throughout his career as "The Mailman", **Karl Malone** the power forward of the Utah Jazz & Los Angeles Lakers leads the all time list of free throws with 9,787. Let's see how many Knicks racked in points from the free throw line.
+```{r}
+knicks %>% 
+    filter(!is.na(FT)) %>% 
+    summarise(mean = mean(FT),
+              median = median(FT),
+              max = max(FT),
+              sd = sd(FT)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+The mean for free throws were 246 with a median of 55; data remains skewed to the left. The leader at the free throw line for the New York Knicks racked in 5,126 points.
+
+##All-Star Difference - Free Throws
+```{r}
+9787 - 5126
+```
+```{r}
+knicks %>% filter(FT >= 2000) %>% 
+  mutate(FT_AVG = round(FT/Yrs)) %>%
+  arrange(desc(FT_AVG)) %>%
+  select(Player,From,To,FT,FT_AVG) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+**Richie Guerin** doesn't leave points on the line with an average of 379, followed by big man **Patrick Ewing** with 342, and **Bill Cartwright** with 324.
+
+###Knicks Olympics - Free Throws
+```{r}
+ft <- tibble(Player = c("Richie Guerin",
+                        "Patrick Ewing",
+                        "Bill Cartwright"),
+                          FT = c(5,3,1))
+
+greatest <- greatest %>% full_join(ft)
+greatest %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+##Offensive Rebounds
+Hall of famer **Moses Malone** leads the pack as the NBA/ABA all time leader in crashing offensive boards with 7,382...let's see who grabbed the most offensive rebounds for the team on 7th avenue.
+```{r}
+knicks %>% 
+    filter(!is.na(ORB)) %>% 
+    summarise(mean = mean(ORB),
+              median = median(ORB),
+              max = max(ORB),
+              sd = sd(ORB)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+The Knicks offensive rebounds leader garnered 2,580 while the team averaged 135.
+
+###All-Star Difference - Offensive Rebounds
+```{r}
+#calculate the difference from the all time leader
+7382-2580
+```
+```{r}
+knicks %>% filter(ORB >= 600) %>% 
+  mutate(ORB_AVG = round(ORB/Yrs)) %>%
+  arrange(desc(ORB_AVG)) %>%
+  select(Player,From,To,ORB,ORB_AVG) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+**Charles Oakley** leads the way with an averge of 258, with **Tyson Chandler** behind with 213, and **David Lee** in third with 206.
+
+###Knicks Olympics - Offensive Rebounds
+```{r}
+orb <- tibble(Player = c("Charles Oakley",
+                         "Tyson Chandler",
+                         "David Lee"),
+                          ORB = c(5,3,1))
+
+greatest <- greatest %>% full_join(orb)
+greatest %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+##Total Rebounds
+**Wilt Chamberlain** will go down in history for scoring 100 points in one game, a feat that will probably never be challenged. The 7-footer from Philadelphia also is the NBA/ABA total rebound leader with 23,924...will **Charles Oakley** come close?
+```{r}
+knicks %>% 
+    filter(!is.na(TRB)) %>% 
+    summarise(mean = mean(TRB),
+              median = median(TRB),
+              max = max(TRB),
+              sd = sd(TRB)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+Knick players averaged 557 total rebounds with the leader pulling over 10K rebounds!
+
+###All-Star Difference - Total Rebounds
+```{r}
+#calculate the difference from the all time leader
+23924-10759
+```
+```{r}
+knicks %>% filter(TRB >= 4000) %>% 
+  mutate(TRB_AVG =  round(TRB/Yrs)) %>%
+  arrange(desc(TRB_AVG)) %>%
+  select(Player,From,To,TRB, TRB_AVG) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+**Willis Reed** pulled down 8,414 total rebounds averaging 841 per year, followed by the late **Dave DeBusschere** with 778, and the offensive revound king **Charles Oakley** with 729.
+
+###Knicks Olympics - Total Rebounds
+```{r}
+trb <- tibble(Player = c("Willis Reed",
+                         "Dave DeBusschere",
+                         "Charles Oakley"),
+                          TRB = c(5,3,1))
+
+greatest <- greatest %>% full_join(trb)
+
+greatest %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+##Assists
+Utah Jazz point-guard **John Stockton** is the all-time assist leader with 15,806. Will anyone from the Knicks come close to the leader in assists?
+```{r}
+knicks %>% 
+    filter(!is.na(AST)) %>% 
+    summarise(mean = mean(AST),
+              median = median(AST),
+              max = max(AST),
+              sd = sd(AST)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+
+###All-Star Difference - Assists
+```{r}
+#calculate the difference from the all time leader
+15806-4791
+```
+With 11,015 assist behind the assist leader it seems that the Knicks are in major need of a talented point guard. Let's identify which player has led the Knicks with the most dimes.
+```{r}
+knicks %>% filter(AST >= 2000) %>% 
+   mutate(AST_AVG = round(AST/Yrs)) %>%
+  arrange(desc(AST_AVG)) %>%
+  select(Player,From,To,AST,AST_AVG) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+ABC color commentator **Mark Jackson** leads the way with 4,005 total assists and an average of 572, followed by **Michael Ray Richardson** with 561 and Kicks announcer **Walt Frazier** with 479.
+
+###Knicks Olympics - Assists
+```{r}
+ast <- tibble(Player = c("Mark Jackson",
+                         "Michael Ray Richardson",
+                         "Walt Frazier"),
+                          AST = c(5,3,1))
+
+greatest <- greatest %>% full_join(ast)
+
+greatest %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+##Steals
+**John Stockton** is the top man again...this time for defense. With 3,265 steals, Stockton has been deemed a double threat. Is there any Knick with the ability to swipe effectively?
+
+```{r}
+knicks %>% 
+    filter(!is.na(STL)) %>% 
+    summarise(mean = mean(STL),
+              median = median(STL),
+              max = max(STL),
+              sd = sd(STL)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+
+###All-Star Difference - Steals
+```{r}
+#calculate the difference from the all time leader
+3265-1061
+```
+With a difference of only 2,204 I'm looking forward to see which Knick is adept in stealing the basketball.
+```{r}
+knicks %>% filter(STL >= 600) %>% 
+  mutate(STL_AVG = round(STL/Yrs)) %>%
+  arrange(desc(STL_AVG)) %>%
+  select(Player,From,To,STL,STL_AVG) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+**Michael Ray Richardson** takes the title for the swift hand with 810 total steals and an average of 202, followed by **Ray Williams** with 150 and **Mark Jackson** with 103.
+
+###Knicks Olympics - Steals
+```{r}
+stl <- tibble(Player = c("Michael Ray Richardson",
+                         "Ray Williams",
+                         "Mark Jackson"),
+                          STL = c(5,3,1))
+
+greatest <- greatest %>% full_join(stl)
+
+greatest %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+##Blocks
+GEICO has become infamous for their outside of the box insurance  commercials. NBA shot blocker **Dikembe Mutombo** swatted breakfast cereal and other objects while wagging his finger, but it's **Hakeem Olajuwon** who leads the league in block shots with 3,830...were there any ball swatters on the Knicks?
+
+```{r}
+knicks %>% 
+    filter(!is.na(BLK)) %>% 
+    summarise(mean = mean(BLK),
+              median = median(BLK),
+              max = max(BLK),
+              sd = sd(BLK)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+
+###All-Star Difference - Blocks
+```{r}
+#calculate the difference from the all time leader
+3830-2758
+```
+With an edge of 1,072 there seems to be a Knick who doesn't mind blocking shots...will it be **Patrick Ewing**?
+```{r}
+knicks %>% filter(BLK >= 250) %>% 
+  mutate(BLK_AVG = round(BLK/Yrs)) %>%
+  arrange(desc(BLK_AVG)) %>%
+  select(Player,From,To,Yrs,BLK,BLK_AVG) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+**Patrick Ewing** has a commanding lead with 2,758 blocked shots and a 184 avrage, followed by **Kristaps Porzingis** with 126 and **Marvin Webster** with 90.
+
+###Knicks Olympics - Blocked Shots
+```{r}
+blk <- tibble(Player = c("Patrick Ewing",
+                         "Kristaps Porzingis",
+                         "Marvin Webster"),
+                          BLK = c(5,3,1))
+
+greatest <- greatest %>% full_join(blk)
+greatest %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+##Points
+With his unblockable sky hook shot **Kareem Abdul-Jabbar** is the all time leader in points with 38,387. Who is the Knick who has racked up the most points?
+```{r}
+knicks %>% 
+    filter(!is.na(PTS)) %>% 
+    summarise(mean = mean(PTS),
+              median = median(PTS),
+              max = max(PTS),
+              sd = sd(PTS)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+###All-Star Difference - Points
+```{r}
+#calculate the difference from the all time leader
+38387-23665
+```
+With a difference of 14,722 it's a safe bet that **Patrick Ewing** is the owner of this phenomenal statistic or is he?
+```{r}
+knicks %>% filter(PTS >= 9200) %>% 
+  mutate(PTS_AVG = round(PTS/Yrs)) %>%
+  arrange(desc(PTS_AVG)) %>%
+  select(Player,From,To,Yrs,PTS, PTS_AVG) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+Based on our data **Patrick Ewing** is the Knicks top scoring maching with 23,655 points and averaged 1,578 points per year for his career. **Walt Frazier** came in second with 14,617 total points and averaged 1,462 points per year followed by **Carmelo Anthony** who tallied 10,186 points in his 7 year career averaging 1,455 points per year.
+
+###Knicks Olympics - Points
+```{r}
+pts <- tibble(Player = c("Patrick Ewing",
+                         "Walt Frazier",
+                         "Carmelo Anthony"),
+                          PTS = c(5,3,1))
+
+greatest <- greatest %>% full_join(pts)
+greatest %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+##Field Goal Percentage
+Known as a recipient of "Lob City" during the high flying years as a center for the Los Angeles Clippers, **DeAndre Jordan** holds the leagues record for the highest field goal percentage with .6726...let's see who is the most reliable Knick.
+```{r}
+knicks %>% 
+    filter(!is.na(FG_PER)) %>% 
+    summarise(mean = mean(FG_PER),
+              median = median(FG_PER),
+              max = max(FG_PER),
+              sd = sd(FG_PER)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+
+
+In order to obtain our top ten list we tweaked the filtering process to highlight players who played more than 5 years and who had a field goal percentange of 46.4% or higher. 
+```{r}
+knicks %>% filter(FG_PER >= 0.464 & Yrs > 5) %>% 
+  arrange(desc(FG_PER)) %>%
+  select(Player,From,To,Yrs,FG_PER) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+Based on our data, we see that **Bill Cartwright** had the highest field goal percentage shooting 55.2%, followed by **Patrick Ewing** with 50.8%, and **Charles Oakley** with 49.3%.
+
+###Knicks Olympics - Field Goal Percentage
+```{r}
+fg_per <- tibble(Player = c("Bill Cartwright",
+                         "Patrick Ewing",
+                         "Charles Oakley"),
+                          FG_PER = c(5,3,1))
+
+greatest <- greatest %>% full_join(fg_per)
+greatest %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+##3-Point Field Goal Percentage
+As the current coach of the Golden State Warrriors, **Steve Kerr** holds the title for highest 3-point field goal percentage of .4540 ...are any Knicks reliable beyond the arc?
+```{r}
+knicks %>% 
+    filter(!is.na(THREE_PER)) %>% 
+    summarise(mean = mean(THREE_PER),
+              median = median(THREE_PER),
+              max = max(THREE_PER),
+              sd = sd(THREE_PER)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+Similar to the field goal percentage, we will tweak our code in order to obtain our top ten list. 
+```{r}
+knicks %>% filter(THREE_PER >= 0.225 & Yrs > 5) %>% 
+  arrange(desc(THREE_PER)) %>%
+  select(Player,From,To,Yrs,THREE_PER) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+Based on our data, we see that **Trent Tucker** had the highest 3-point field goal percentage shooting 40.9%, followed by **Allan Houston** with 39.9%, and **Carmelo Anthony** with 36.9%.
+
+###Knicks Olympics - Field Goal Percentage
+```{r}
+three_per <- tibble(Player = c("Trent Tucker",
+                         "Allan Houston",
+                         "Carmelo Anthony"),
+                          THREE_PER = c(5,3,1))
+
+greatest <- greatest %>% full_join(three_per)
+
+greatest %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+##Free Throw Percentage
+Hall of famer **Steve Nash** was considered cash money on the free throw line with his astounding 90.43%...who holds the title in Madison Square Garden.
+```{r}
+knicks %>% 
+    filter(!is.na(FT_PER)) %>% 
+    summarise(mean = mean(FT_PER),
+              median = median(FT_PER),
+              max = max(FT_PER),
+              sd = sd(FT_PER)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+Similar to the prior percentage analysis, we will tweak our code in order to obtain our top ten list. 
+```{r}
+knicks %>% filter(FT_PER >= 0.783 & Yrs > 5) %>% 
+  arrange(desc(FT_PER)) %>%
+  select(Player,From,To,Yrs,FT_PER) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+Based on our data, we see that **Allan Houston** had the highest free throw percentage shooting 87.2%, followed by **Bill Bradley** with 84%, and **Carmelo Anthony** with 83%.
+
+###Knicks Olympics (Free Throw Percentage)
+```{r}
+ft_per <- tibble(Player = c("Allan Houston",
+                         "Bill Bradley",
+                         "Carmelo Anthony"),
+                          FT_PER = c(5,3,1))
+
+greatest <- greatest %>% full_join(ft_per)
+
+greatest %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+##Minutes Per Game
+For what may seem absurd, **Wilt Chamberlain** averaged 45.8 minutes per game
+```{r}
+knicks %>% 
+    filter(!is.na(MPPG)) %>% 
+    summarise(mean = mean(MPPG),
+              median = median(MPPG),
+              max = max(MPPG),
+              sd = sd(MPPG)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+###All-Star Difference - MMPG
+```{r}
+#calculate the difference from the all time leader
+45.80-39.8
+```
+Six minutes short, there is a Knick who averaged 39.8 minutes per game. Let's identify who were the iron men of the NY Knicks.
+```{r}
+knicks %>% filter(MPPG >= 36) %>% 
+  arrange(desc(MPPG)) %>%
+  select(Player,From,To,Yrs,MPPG) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+Based on our data, we see that **Bob McAdoo** remained the court the most with 39.8 minutes per game, followed by **Latrell Sprewell** with 39.1, and **Walt Frazier** with 38.2
+
+###Knicks Olympics (Minutes Per Game)
+```{r}
+mppg <- tibble(Player = c("Bob McAdoo",
+                         "Latrell Sprewell",
+                         "Walt Frazier"),
+                          MPPG = c(5,3,1))
+
+greatest <- greatest %>% full_join(mppg)
+
+greatest %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+##Points Per Game
+Seen as one of the first basketball superstars to become a marketing goliath **Michael Jordan** averaged 30.12 points per game..do the Knicks have a player that comes close to the GOAT?
+```{r}
+knicks %>% 
+    filter(!is.na(PPG)) %>% 
+    summarise(mean = mean(PPG),
+              median = median(PPG),
+              max = max(PPG),
+              sd = sd(PPG)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+###All-Star Difference - PPG
+```{r}
+#calculate the difference from the all time leader
+30.12-26.7
+```
+With only 3.42 points shy of the GOAT, there was a Knick who averaged 26.7 points per game. Overall, the Knicks averaged close to 7 points per game with a median of 5.3
+```{r}
+knicks %>% filter(PPG >= 18.7) %>% 
+  arrange(desc(PPG)) %>%
+  select(Player,From,To,Yrs,PPG) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+Based on our data, we see that **Bob McAdoo** recorded 26.7 points per game, followed by **Bernard King** with 26.5 and **Carmelo Anthony** with 24.7
+
+###Knicks Olympics (Points Per Game)
+```{r}
+ppg <- tibble(Player = c("Bob McAdoo",
+                         "Bernard King",
+                         "Carmelo Anthony"),
+                          PPG = c(5,3,1))
+
+greatest <- greatest %>% full_join(ppg)
+
+greatest %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+##Total Rebounds Per Game
+With 11 championship rings with the Boston Celtics, **Bill Rusell** averaged 24.87 total rebounds per game in his illustrious career...which Knick crashed the boards like Bill?
+```{r}
+knicks %>% 
+    filter(!is.na(TRPG)) %>% 
+    summarise(mean = mean(TRPG),
+              median = median(TRPG),
+              max = max(TRPG),
+              sd = sd(TRPG)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+###All-Star Difference TRPG
+```{r}
+#calculate the difference from the all time leader
+24.87-13.3
+```
+It doesn't seem like the Knicks haven't had anybody like Bill, and they average a paltry 3.2 rebounds per game with a median of 2.6
+```{r}
+knicks %>% filter(TRPG >= 10.6) %>% 
+  arrange(desc(TRPG)) %>%
+  select(Player,From,To,Yrs,TRPG) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+Based on our data, we see that **Walt Bellamy** recorded 13.3 total rebounds per game, followed by **Willis Reed** with 12.9 and **Harry Gallatin** with 12.1
+
+###Knicks Olympics (Total Rebounds Per Game)
+```{r}
+trpg <- tibble(Player = c("Walt Bellamy",
+                         "Willis Reed",
+                         "Harry Gallatin"),
+                          TRPG = c(5,3,1))
+
+greatest <- greatest %>% full_join(trpg)
+
+greatest %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+##Assist Per Game
+Known as the "Magic Man" with the showtime Los Angeless Lakers, **Magic Johnson** recorded 11.19 assists per game...do the Knicks have a floor general dropping dimes like Magic?
+```{r}
+knicks %>% 
+    filter(!is.na(APG)) %>% 
+    summarise(mean = mean(APG),
+              median = median(APG),
+              max = max(APG),
+              sd = sd(APG)) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+###All-Star Difference - APG
+```{r}
+#calculate the difference from the all time leader
+11.19-8
+```
+As a team the Knicks mean and median is almost symmetrical for assists with the top man raking in 8 per game.
+```{r}
+knicks %>% filter(APG >= 5.7) %>% 
+  arrange(desc(APG)) %>%
+  select(Player,From,To,Yrs,APG) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+Based on our data, we see that **Mark Jacksoin** recorded 8 assists per game, followed by **Michael Ray Richardson** with 7.1 and **Stephon Marbury** with 7
+
+###Knicks Olympics - Assists Per Game
+```{r}
+apg <- tibble(Player = c("Mark Jackson",
+                         "Michael Ray Richardson",
+                         "Stephon Marbury"),
+                          APG = c(5,3,1))
+
+greatest <- greatest %>% full_join(apg)
+
+greatest %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+#The Greatest Knick
+First let's create a total variable and then create a bar chart 
+```{r}
+greatest$Total <- rowSums(greatest[2:18], na.rm=TRUE) 
+```
+```{r}
+greatest %>% arrange(desc(Total)) %>%
+    select(Player,Total) %>%
+    kable("html") %>%
+    kable_styling(bootstrap_options = "striped",
+                  full_width = F,
+                  position = "left")
+```
+Based on our findings we see that **Patrick Ewing** is the greatest Knick of all time, followed by **Walt Frazier** and **Mark Jackson** & **Michael Ray Richardson**.
+
+As a Knick fan, the first two players make sense because they are both hall of famers. Surprinsingly, hall of famer **Bernard King** did not not rank higher. The remaining names with a score of 3 or higher have always been considered great Knicks sthat part of the analysis seems correct. If the Knicks want to start making changes they might need to obtain a high lottery pick like they did in 1985 with **Patrick Ewing**.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
